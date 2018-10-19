@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const Movie = require('../models/Movie');
+const Movie = require('../models/Director');
 
 router.get('/', (req,res)=>{
-  const promise =Movie.find({});
+  const promise =Director.find({});
   promise.then((data)=>{
     res.json(data);
   }).catch((err)=>{
@@ -61,10 +61,8 @@ router.put('/:movie_id', (req, res, next) => {
 	});
 });
 router.post('/', (req, res, next) => {
-	// const { title, imdb_score, category, country, year } = req.body;
-
-	const movie = new Movie(req.body);
-	const promise = movie.save();
+	const director = new Director(req.body);
+	const promise = director.save();
 
 	promise.then((data) => {
 		res.json(data);
