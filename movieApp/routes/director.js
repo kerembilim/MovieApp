@@ -1,88 +1,132 @@
 const express = require('express');
 const router = express.Router();
-const Movie = require('../models/Director');
+const Director = require('../models/Director');
 
-router.get('/', (req,res)=>{
-  const promise =Director.find({});
-  promise.then((data)=>{
-    res.json(data);
-  }).catch((err)=>{
-    res.json(err);
-  });
-});
-router.get('/top10', (req,res)=>{
-  const promise =Movie.find({}).limit(10).sort({imdb_score:-1});
-  promise.then((data)=>{
-    res.json(data);
-  }).catch((err)=>{
-    res.json(err);
-  });
-});
-router.get('/:movie_id', (req, res, next) => {
-	const promise = Movie.findById(req.params.movie_id);
-	promise.then((movie) => {
-		console.log(movie);
-		if (!movie)
-			next({ message: 'The movie was not found.', code: 99 });
+router.get('/', (req, res) => {
+	const promise = Director.aggregate([
+		{
+			$lookup: {
+				from: 'movies',//database'te hangi collection ile join edilecek 
+				localField: '_id',//director collectioninin hangi alanına göre join edilecek
+				foreignField: 'director_id',//movie collectioninin hangi alanına göre join edilecek
+				as: 'movies'//movie datası gibi dönenecek
+			}
+		},
+		{
+			$unwind: {
+				path: '$movies',
+				preserveNullAndEmptyArrays: true//filme sahip olmayan yönetmenleride getir
+			}
+		},
+		{
+			$group: {//donulecek data atamalari
+				_id: {
+					_id: '$_id',
+					name: '$name',
+					surname: '$surname',
+					bio: '$bio'
+				},
+				movies: {
+					$push: '$movies'
+				}
+			}
+		},
+		{
+			$project: {//donulecek data
+				_id: '$_id._id',
+				name: '$_id.name',
+				surname: '$_id.surname',
+				bio:'$_id.bio',
+				movies: '$movies'
+			}
+		}
+	]);
 
-		res.json(movie);
+	promise.then((data) => {
+		res.json(data);
 	}).catch((err) => {
 		res.json(err);
 	});
 });
-router.delete('/:movie_id', (req, res, next) => {
-	const promise = Movie.findByIdAndRemove(req.params.movie_id);
-	promise.then((movie) => {
-		console.log(movie);
-		if (!movie)
-			next({ message: 'The movie was not found.', code: 99 });
+router.get('/:director_id', (req, res) => {
+	const promise = Director.aggregate([
+		{
+			$match: {
+				'_id': mongoose.Types.ObjectId(req.params.director_id)
+			}
+		},
+		{
+			$lookup: {
+				from: 'movies',
+				localField: '_id',
+				foreignField: 'director_id',
+				as: 'movies'
+			}
+		},
+		{
+			$unwind: {
+				path: '$movies',
+				preserveNullAndEmptyArrays: true
+			}
+		},
+		{
+			$group: {
+				_id: {
+					_id: '$_id',
+					name: '$name',
+					surname: '$surname',
+					bio: '$bio'
+				},
+				movies: {
+					$push: '$movies'
+				}
+			}
+		},
+		{
+			$project: {
+				_id: '$_id._id',
+				name: '$_id.name',
+				surname: '$_id.surname',
+				movies: '$movies'
+			}
+		}
+	]);
 
-		res.json(movie);
+	promise.then((data) => {
+		res.json(data);
 	}).catch((err) => {
 		res.json(err);
 	});
 });
-router.put('/:movie_id', (req, res, next) => {
-	const promise = Movie.findByIdAndUpdate(
-		req.params.movie_id,
+router.put('/:director_id', (req, res, next) => {
+	const promise = Director.findByIdAndUpdate(
+		req.params.director_id,
 		req.body,
 		{
 			new: true
 		}
 	);
+	promise.then((director) => {
+		if (!director)
+			next({ message: 'The director was not found.', code: 99 });
 
-	promise.then((movie) => {
-		if (!movie)
-			next({ message: 'The movie was not found.', code: 99 });
-
-		res.json(movie);
+		res.json(director);
 	}).catch((err) => {
 		res.json(err);
 	});
 });
-router.post('/', (req, res, next) => {
-	const director = new Director(req.body);
-	const promise = director.save();
+router.delete('/:director_id', (req, res, next) => {
+	const promise = Director.findByIdAndRemove(req.params.director_id);
+	promise.then((director) => {
+		console.log(director);
+		if (!director)
+			next({ message: 'The director was not found.', code: 99 });
 
-	promise.then((data) => {
-		res.json(data);
+		res.json(director);
 	}).catch((err) => {
 		res.json(err);
 	});
 });
-router.get('/between/:start_year/:end_year', (req, res) => {
-	const { start_year, end_year } = req.params;
-	const promise = Movie.find(
-		{
-			year: { "$gte": parseInt(start_year), "$lte": parseInt(end_year) }
-		}
-	);
 
-	promise.then((data) => {
-		res.json(data);
-	}).catch((err) => {
-		res.json(err);
-	})
-});
 
 module.exports = router;
